@@ -1,21 +1,16 @@
-/**
- * @file userRoutes.js
- * @description Routes for user operations
- * @github oaslananka
- */
-
 const express = require('express');
-const router = express.Router();
-const userController = require('../controllers/userController');
+const { createUserController } = require('../controllers/userController');
+const { validateBody } = require('../middleware/validate');
+const { loginUserBody, registerUserBody } = require('../validators/schemas');
 
-// @route POST /api/users/register
-// @desc Register a user
-// @access Public
-router.post('/register', userController.registerUser);
+function createUserRoutes(config) {
+  const router = express.Router();
+  const userController = createUserController(config);
 
-// @route POST /api/users/login
-// @desc Login a user
-// @access Public
-router.post('/login', userController.loginUser);
+  router.post('/register', validateBody(registerUserBody), userController.registerUser);
+  router.post('/login', validateBody(loginUserBody), userController.loginUser);
 
-module.exports = router;
+  return router;
+}
+
+module.exports = createUserRoutes;

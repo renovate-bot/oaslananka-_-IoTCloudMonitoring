@@ -1,32 +1,27 @@
-/**
- * @file server.js
- * @description Main server file for the IoT Cloud Monitoring application
- * @github oaslananka
- */
+const { createApp } = require('./app');
+const { connectDB } = require('./config/db');
+const { loadEnv } = require('./config/env');
+const { createLogger } = require('./utils/logger');
 
-const express = require('express');
-const connectDB = require('./config/db');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const app = express();
-const port = process.env.PORT || 3000;
+async function start() {
+  const config = loadEnv();
+  const logger = createLogger(config);
 
-// Connect Database
-connectDB();
+  await connectDB(config.mongodbUri);
+  const app = createApp(config);
 
-// Middleware
-app.use(bodyParser.json());
-app.use(cors());
+  const server = app.listen(config.port, () => {
+    logger.info({ port: config.port }, 'server_started');
+  });
 
-// Routes
-app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/devices', require('./routes/deviceRoutes'));
-app.use('/api/data', require('./routes/dataRoutes'));
+  return server;
+}
 
-app.get('/', (req, res) => {
-    res.send('IoT Cloud Monitoring API');
-});
+if (require.main === module) {
+  start().catch((error) => {
+    console.error(JSON.stringify({ level: 'fatal', message: error.message }));
+    process.exit(1);
+  });
+}
 
-app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-});
+module.exports = { start };

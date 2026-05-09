@@ -1,21 +1,18 @@
-/**
- * @file dataRoutes.js
- * @description Routes for data operations
- * @github oaslananka
- */
-
 const express = require('express');
-const router = express.Router();
 const dataController = require('../controllers/dataController');
+const { createAuthMiddleware } = require('../middleware/auth');
+const { validateBody, validateParams } = require('../middleware/validate');
+const { deviceIdParam, telemetryBody } = require('../validators/schemas');
 
-// @route POST /api/data
-// @desc Add data
-// @access Public
-router.post('/', dataController.addData);
+function createDataRoutes(config) {
+  const router = express.Router();
+  const requireAuth = createAuthMiddleware(config);
 
-// @route GET /api/data/:deviceId
-// @desc Get data for a device
-// @access Public
-router.get('/:deviceId', dataController.getData);
+  router.use(requireAuth);
+  router.post('/', validateBody(telemetryBody), dataController.addData);
+  router.get('/:deviceId', validateParams(deviceIdParam), dataController.getData);
 
-module.exports = router;
+  return router;
+}
+
+module.exports = createDataRoutes;

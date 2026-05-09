@@ -1,0 +1,22 @@
+[Unit]
+Description=IoT Cloud Monitoring API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ iotcloudmonitoring_user }}
+Group={{ iotcloudmonitoring_group }}
+WorkingDirectory={{ iotcloudmonitoring_dir }}
+EnvironmentFile={{ iotcloudmonitoring_env_file }}
+ExecStart=/usr/bin/pnpm --dir backend start
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ iotcloudmonitoring_dir }}
+
+[Install]
+WantedBy=multi-user.target
