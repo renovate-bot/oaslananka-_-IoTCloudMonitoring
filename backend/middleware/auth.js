@@ -1,23 +1,41 @@
-/**
- * @file auth.js
- * @description Middleware for JWT authentication
- * @github oaslananka
- */
+const { verifyAccessToken } = require('../services/authService');
+const { AppError } = require('../utils/errors');
 
-const jwt = require('jsonwebtoken');
+function readToken(req) {
+  const authorization = req.header('authorization') || '';
+  const [scheme, token] = authorization.split(' ');
 
-module.exports = function (req, res, next) {
-    const token = req.header('x-auth-token');
+  if (scheme && scheme.toLowerCase() === 'bearer' && token) {
+    return token;
+  }
+
+  return req.header('x-auth-token');
+}
+
+function createAuthMiddleware(config) {
+  return (req, res, next) => {
+    const token = readToken(req);
 
     if (!token) {
-        return res.status(401).json({ msg: 'No token, authorization denied' });
+      next(new AppError(401, 'unauthorized', 'Authentication is required'));
+      return;
     }
 
     try {
-        const decoded = jwt.verify(token, 'secret');
-        req.user = decoded.user;
-        next();
-    } catch (err) {
-        res.status(401).json({ msg: 'Token is not valid' });
+      const decoded = verifyAccessToken(token, config);
+      const id = decoded.sub || decoded.user?.id;
+
+      if (!id) {
+        next(new AppError(401, 'invalid_token', 'Token is not valid'));
+        return;
+      }
+
+      req.user = { id };
+      next();
+    } catch {
+      next(new AppError(401, 'invalid_token', 'Token is not valid'));
     }
-};
+  };
+}
+
+module.exports = { createAuthMiddleware };

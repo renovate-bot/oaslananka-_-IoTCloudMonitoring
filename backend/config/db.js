@@ -1,23 +1,20 @@
-/**
- * @file db.js
- * @description Database connection configuration for MongoDB
- * @github oaslananka
- */
-
 const mongoose = require('mongoose');
 
-const connectDB = async () => {
-    try {
-        await mongoose.connect('mongodb://localhost:27017/iotcloud', {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-            useCreateIndex: true
-        });
-        console.log('MongoDB Connected...');
-    } catch (err) {
-        console.error(err.message);
-        process.exit(1);
-    }
-};
+async function connectDB(uri) {
+  if (!uri) {
+    throw new Error('MONGODB_URI is required');
+  }
 
-module.exports = connectDB;
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
+  }
+
+  await mongoose.connect(uri);
+  return mongoose.connection;
+}
+
+async function disconnectDB() {
+  await mongoose.disconnect();
+}
+
+module.exports = { connectDB, disconnectDB };

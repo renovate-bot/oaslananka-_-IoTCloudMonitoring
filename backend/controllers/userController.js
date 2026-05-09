@@ -1,64 +1,48 @@
-/**
- * @file userController.js
- * @description Controller functions for user operations
- * @github oaslananka
- */
+const bcrypt = require('bcryptjs');
 
 const User = require('../models/User');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const { signAccessToken } = require('../services/authService');
+const { asyncHandler } = require('../utils/asyncHandler');
+const { AppError } = require('../utils/errors');
 
-exports.registerUser = async (req, res) => {
-    const { name, email, password } = req.body;
+function createUserController(config) {
+  return {
+    registerUser: asyncHandler(async (req, res) => {
+      const { name, email, password } = req.body;
+      const existingUser = await User.findOne({ email });
 
-    try {
-        let user = await User.findOne({ email });
-        if (user) {
-            return res.status(400).json({ msg: 'User already exists' });
-        }
+      if (existingUser) {
+        throw new AppError(409, 'duplicate_user', 'Resource already exists');
+      }
 
-        user = new User({
-            name,
-            email,
-            password
-        });
+      const passwordHash = await bcrypt.hash(password, 12);
+      const user = await User.create({ name, email, passwordHash });
 
-        await user.save();
-        res.status(201).json({ msg: 'User registered successfully' });
+      res.status(201).json({
+        user: user.toJSON()
+      });
+    }),
 
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
-    }
-};
+    loginUser: asyncHandler(async (req, res) => {
+      const { email, password } = req.body;
+      const user = await User.findOne({ email }).select('+passwordHash');
 
-exports.loginUser = async (req, res) => {
-    const { email, password } = req.body;
+      if (!user) {
+        throw new AppError(401, 'invalid_credentials', 'Invalid email or password');
+      }
 
-    try {
-        let user = await User.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ msg: 'Invalid credentials' });
-        }
+      const passwordMatches = await bcrypt.compare(password, user.passwordHash);
+      if (!passwordMatches) {
+        throw new AppError(401, 'invalid_credentials', 'Invalid email or password');
+      }
 
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ msg: 'Invalid credentials' });
-        }
+      res.status(200).json({
+        token: signAccessToken(user, config),
+        tokenType: 'Bearer',
+        expiresIn: config.jwt.expiresIn
+      });
+    })
+  };
+}
 
-        const payload = {
-            user: {
-                id: user.id
-            }
-        };
-
-        jwt.sign(payload, 'secret', { expiresIn: 3600 }, (err, token) => {
-            if (err) throw err;
-            res.json({ token });
-        });
-
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
-    }
-};
+module.exports = { createUserController };

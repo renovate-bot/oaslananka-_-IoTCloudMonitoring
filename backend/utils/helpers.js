@@ -10,9 +10,9 @@
  * @returns {string} Formatted date string
  */
 function formatDate(date) {
-    return date.toISOString().replace(/T/, ' ').replace(/\..+/, '');
+  return date.toISOString().replace(/T/, ' ').replace(/\..+/, '');
 }
 
 module.exports = {
-    formatDate
+  formatDate
 };

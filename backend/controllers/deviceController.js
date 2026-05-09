@@ -1,72 +1,64 @@
-/**
- * @file deviceController.js
- * @description Controller functions for device operations
- * @github oaslananka
- */
-
 const Device = require('../models/Device');
+const { asyncHandler } = require('../utils/asyncHandler');
+const { AppError } = require('../utils/errors');
 
-exports.registerDevice = async (req, res) => {
-    const { name, type, location } = req.body;
+async function findOwnedDevice(deviceId, ownerId) {
+  const device = await Device.findById(deviceId);
 
-    try {
-        const newDevice = new Device({
-            name,
-            type,
-            location
-        });
+  if (!device) {
+    throw new AppError(404, 'device_not_found', 'Device not found');
+  }
 
-        await newDevice.save();
-        res.status(201).json({ msg: 'Device registered successfully' });
+  if (device.owner.toString() !== ownerId) {
+    throw new AppError(403, 'forbidden', 'You do not have access to this device');
+  }
 
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
-    }
-};
+  return device;
+}
 
-exports.getDevices = async (req, res) => {
-    try {
-        const devices = await Device.find();
-        res.status(200).json(devices);
+const registerDevice = asyncHandler(async (req, res) => {
+  const device = await Device.create({
+    ...req.body,
+    owner: req.user.id
+  });
 
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
-    }
-};
+  res.status(201).json({ device: device.toJSON() });
+});
 
-exports.updateDevice = async (req, res) => {
-    const { id, status } = req.body;
+const getDevices = asyncHandler(async (req, res) => {
+  const devices = await Device.find({ owner: req.user.id }).sort({ createdAt: -1 });
+  res.status(200).json({ devices: devices.map((device) => device.toJSON()) });
+});
 
-    try {
-        const device = await Device.findById(id);
+const getDevice = asyncHandler(async (req, res) => {
+  const device = await findOwnedDevice(req.params.id, req.user.id);
+  res.status(200).json({ device: device.toJSON() });
+});
 
-        if (!device) {
-            return res.status(404).json({ msg: 'Device not found' });
-        }
+const updateDevice = asyncHandler(async (req, res) => {
+  const device = await findOwnedDevice(req.params.id, req.user.id);
 
-        device.status = status;
-        device.lastSeen = Date.now();
+  for (const [key, value] of Object.entries(req.body)) {
+    device[key] = value;
+  }
+  device.lastSeen = new Date();
 
-        await device.save();
-        res.status(200).json({ msg: 'Device updated successfully' });
+  await device.save();
+  res.status(200).json({ device: device.toJSON() });
+});
 
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
-    }
-};
+const deleteDevice = asyncHandler(async (req, res) => {
+  const device = await findOwnedDevice(req.params.id, req.user.id);
+  await device.deleteOne();
 
-exports.deleteDevice = async (req, res) => {
-    const { id } = req.params;
+  res.status(204).send();
+});
 
-    try {
-        await Device.findByIdAndDelete(id);
-        res.status(200).json({ msg: 'Device deleted successfully' });
-
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
-    }
+module.exports = {
+  deleteDevice,
+  findOwnedDevice,
+  getDevice,
+  getDevices,
+  registerDevice,
+  updateDevice
 };

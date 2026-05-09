@@ -1,139 +1,187 @@
+# IoT Cloud Monitoring
 
-# IoT Cloud Monitoring System
+IoT Cloud Monitoring is a Node.js 24 + Express API for registering users, managing user-owned IoT devices, and storing numeric telemetry readings in MongoDB.
 
-## Overview
-The IoT Cloud Monitoring System is an advanced web application designed to monitor and manage IoT devices through a cloud-based platform. Built with Node.js, Express.js, MongoDB, DynamoDB, and AWS services, this project includes features such as device registration, real-time data monitoring, alerts, and data analysis. The application also supports DevOps tools like Terraform and GitHub Actions for CI/CD pipelines.
+The repository currently provides a backend REST API, automated tests, CI/security workflows, release-please configuration, and example infrastructure files. It does not currently implement MQTT ingestion, alerts, reporting dashboards, AWS Lambda, API Gateway, DynamoDB, CloudFormation, container publishing, registry publishing, or production deployment automation.
 
-## Features
-- **Device Management**: Register, update, delete, and view IoT devices.
-- **Real-Time Monitoring**: Monitor data from devices in real-time.
-- **Alerts and Notifications**: Set thresholds and receive alerts.
-- **Data Analysis and Reporting**: Analyze and report on collected data.
-- **Scalability**: Utilize load balancing solutions for scaling.
-- **Security**: Ensure secure data transmission and authentication.
+## Runtime Requirements
 
-## Technologies Used
-- **Backend**: Node.js, Express.js
-- **Database**: MongoDB, DynamoDB
-- **Cloud Platform**: AWS (Lambda, API Gateway, CloudFormation)
-- **DevOps**: Terraform, GitHub Actions, Ansible
-- **IoT Protocols**: MQTT, HTTPS
-- **Web Services**: RESTful API
-- **Languages**: Python, Bash
+- Node.js 24 LTS
+- pnpm 10.33.x
+- MongoDB for local runtime
+- No local MongoDB daemon is required for tests
 
-## Project Structure
-```
-IoTCloudMonitoring/
-├── backend/
-│   ├── config/
-│   │   └── db.js
-│   ├── controllers/
-│   │   ├── deviceController.js
-│   │   ├── dataController.js
-│   │   └── userController.js
-│   ├── middleware/
-│   │   └── auth.js
-│   ├── models/
-│   │   ├── Device.js
-│   │   ├── Data.js
-│   │   └── User.js
-│   ├── node_modules/
-│   ├── routes/
-│   │   ├── deviceRoutes.js
-│   │   ├── dataRoutes.js
-│   │   └── userRoutes.js
-│   ├── tests/
-│   │   ├── device.test.js
-│   │   ├── data.test.js
-│   │   └── user.test.js
-│   ├── utils/
-│   ├── package.json
-│   ├── package-lock.json
-│   └── server.js
-├── data/
-├── docs/
-├── terraform/
-├── ansible/
-├── .gitignore
-└── README.md
-```
+## Setup
 
-## Installation
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/oaslananka/IoTCloudMonitoring.git
-   ```
-
-2. Navigate to the `backend` directory and install the dependencies:
-   ```bash
-   cd IoTCloudMonitoring/backend
-   npm install
-   ```
-
-3. Ensure MongoDB is installed and running on your system.
-
-4. Start the server:
-   ```bash
-   npm start
-   ```
-
-## Usage
-### Device Management
-- Register a new device:
-  ```http
-  POST /api/devices
-  {
-    "name": "Device Name",
-    "type": "Device Type",
-    "location": "Device Location"
-  }
-  ```
-
-- Get all devices:
-  ```http
-  GET /api/devices
-  ```
-
-- Update a device:
-  ```http
-  PUT /api/devices
-  {
-    "id": "device_id",
-    "status": "online"
-  }
-  ```
-
-- Delete a device:
-  ```http
-  DELETE /api/devices/:id
-  ```
-
-### Data Management
-- Add data for a device:
-  ```http
-  POST /api/data
-  {
-    "deviceId": "device_id",
-    "data": {
-      "temperature": "22",
-      "humidity": "45"
-    }
-  }
-  ```
-
-- Get data for a device:
-  ```http
-  GET /api/data/:deviceId
-  ```
-
-## Testing
-Run the tests using the following command:
 ```bash
-npm test
+pnpm install
+cp .env.example .env
 ```
+
+Update `.env` before running the API. `JWT_SECRET` must be a random value of at least 32 characters outside tests.
+
+## Environment Variables
+
+| Name                   | Required | Description                              |
+| ---------------------- | -------- | ---------------------------------------- |
+| `NODE_ENV`             | yes      | `development`, `test`, or `production`.  |
+| `PORT`                 | yes      | HTTP port.                               |
+| `MONGODB_URI`          | yes      | MongoDB connection string.               |
+| `JWT_SECRET`           | yes      | JWT signing secret.                      |
+| `JWT_ISSUER`           | yes      | Expected JWT issuer.                     |
+| `JWT_AUDIENCE`         | yes      | Expected JWT audience.                   |
+| `JWT_EXPIRES_IN`       | no       | Token lifetime, default `1h`.            |
+| `CORS_ORIGINS`         | yes      | Comma-separated allowed browser origins. |
+| `LOG_LEVEL`            | yes      | Pino log level.                          |
+| `BODY_LIMIT`           | no       | JSON body size limit, default `100kb`.   |
+| `RATE_LIMIT_WINDOW_MS` | no       | Rate limit window for auth routes.       |
+| `RATE_LIMIT_MAX`       | no       | Max auth requests per rate limit window. |
+
+## Run Locally
+
+```bash
+pnpm run dev
+```
+
+Health endpoints:
+
+```http
+GET /healthz
+GET /readyz
+```
+
+## Authentication
+
+Register:
+
+```http
+POST /api/users/register
+Content-Type: application/json
+
+{
+  "name": "Ada Lovelace",
+  "email": "ada@example.com",
+  "password": "correct-horse-battery-staple"
+}
+```
+
+Login:
+
+```http
+POST /api/users/login
+Content-Type: application/json
+
+{
+  "email": "ada@example.com",
+  "password": "correct-horse-battery-staple"
+}
+```
+
+Use the returned token on private routes:
+
+```http
+Authorization: Bearer <token>
+```
+
+`x-auth-token` is accepted for compatibility but new clients should use the bearer token header.
+
+## Devices
+
+Create a device:
+
+```http
+POST /api/devices
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "Temperature Node",
+  "type": "sensor",
+  "location": "Warehouse"
+}
+```
+
+List devices:
+
+```http
+GET /api/devices
+Authorization: Bearer <token>
+```
+
+Update a device:
+
+```http
+PUT /api/devices/:id
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "status": "online"
+}
+```
+
+Delete a device:
+
+```http
+DELETE /api/devices/:id
+Authorization: Bearer <token>
+```
+
+## Telemetry
+
+Store numeric telemetry for a device owned by the authenticated user:
+
+```http
+POST /api/data
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "deviceId": "665f2c32f8b2b4a9865ddc10",
+  "data": {
+    "temperature": 22.5,
+    "humidity": 45
+  }
+}
+```
+
+Read telemetry:
+
+```http
+GET /api/data/:deviceId
+Authorization: Bearer <token>
+```
+
+## Verification
+
+```bash
+pnpm run format:check
+pnpm run lint
+pnpm run test
+pnpm run build
+pnpm run security
+pnpm run ci
+```
+
+## Security Model
+
+- Passwords are hashed with bcrypt before storage.
+- JWTs are verified with issuer, audience, expiration, and HS256 algorithm checks.
+- Device and telemetry records are scoped to the authenticated owner.
+- Request validation returns stable error envelopes.
+- Production error responses do not expose stack traces.
+- `.env` files and local secrets are ignored.
+
+## Deployment Status
+
+The project is staging-ready for local and CI verification. Production deployment is not configured. Example Terraform and Ansible files are under `infra/examples/` and should be treated as references, not a complete production path.
+
+## Release Policy
+
+Release automation uses release-please manifest mode and Conventional Commits. The release workflow may create a GitHub Release after a release pull request is merged, then build SBOM/checksum/provenance assets in GitHub Actions.
+
+No npm, PyPI, VS Code Marketplace, Open VSX, container registry, Cloudflare, or production deployment publish workflow is configured.
 
 ## License
-This project is licensed under the MIT License.
 
-## Author
-[@oaslananka](https://github.com/oaslananka)
+MIT
